@@ -25,6 +25,7 @@ public partial class ChallengeForm : ComponentBase
     private string ChallengeGroupName { get; set; } = string.Empty;
     private Dictionary<int, bool> TemplatesSelectedForDeletion { get; set; } = [];
     private Dictionary<int, bool> ChallengeGroupsSelectedForDeletion { get; set; } = [];
+    private Dictionary<ActivityType, double> ActivityTypeMultipliers { get; set; } = new();
     
     private const int MaximumSuggestions = 10;
     private DropdownSearch<ActivityType>? _dropdownSearchRefActivityTypes;
@@ -87,6 +88,24 @@ public partial class ChallengeForm : ComponentBase
             IsPrivate = template.IsPrivate,
             InvitedAthletes = [],
         };
+        
+        // Initialize multipliers from template
+        ActivityTypeMultipliers.Clear();
+        if (template.ChallengeTemplateActivityTypes?.Count > 0)
+        {
+            foreach (var cat in template.ChallengeTemplateActivityTypes)
+            {
+                ActivityTypeMultipliers[cat.ActivityType] = cat.Multiplier;
+            }
+        }
+        else
+        {
+            // Default multipliers
+            foreach (var activityType in template.ActivityTypes)
+            {
+                ActivityTypeMultipliers[activityType] = 1.0;
+            }
+        }
     }
 
     private async Task CreateChallengeTemplate()
@@ -168,6 +187,15 @@ public partial class ChallengeForm : ComponentBase
     
     protected override void OnParametersSet()
     {
+        // Ensure all selected activity types have multipliers
+        foreach (var activityType in Challenge.ActivityTypes)
+        {
+            if (!ActivityTypeMultipliers.ContainsKey(activityType))
+            {
+                ActivityTypeMultipliers[activityType] = 1.0;
+            }
+        }
+        
         if (EditChallenge != null)
         {
             if (EditChallenge.Athletes is null) throw new Exception("Athletes not initialized");
@@ -180,8 +208,25 @@ public partial class ChallengeForm : ComponentBase
             Challenge.ActivityTypes = EditChallenge.ActivityTypes.ToList();
             Challenge.IsPrivate = EditChallenge.IsPrivate;
             Challenge.CreatedBy = EditChallenge.CreatedById;
-            Challenge.InvitedAthletes = EditChallenge.InvitedAthletes?.ToList() ?? []
-                ;
+            Challenge.InvitedAthletes = EditChallenge.InvitedAthletes?.ToList() ?? [];
+            
+            // Initialize multipliers from existing challenge
+            ActivityTypeMultipliers.Clear();
+            if (EditChallenge.ChallengeActivityTypes?.Count > 0)
+            {
+                foreach (var cat in EditChallenge.ChallengeActivityTypes)
+                {
+                    ActivityTypeMultipliers[cat.ActivityType] = cat.Multiplier;
+                }
+            }
+            else
+            {
+                // Default multipliers for existing activity types
+                foreach (var activityType in Challenge.ActivityTypes)
+                {
+                    ActivityTypeMultipliers[activityType] = 1.0;
+                }
+            }
         }
         else
         {
@@ -212,6 +257,20 @@ public partial class ChallengeForm : ComponentBase
         if (_dropdownSearchRefActivityTypes is null) return;
 
         await _dropdownSearchRefActivityTypes.DeselectItemAsync(item);
+        ActivityTypeMultipliers.Remove(item);
+    }
+
+    private void OnActivityTypeSelected(ActivityType activityType)
+    {
+        if (!ActivityTypeMultipliers.ContainsKey(activityType))
+        {
+            ActivityTypeMultipliers[activityType] = 1.0;
+        }
+    }
+
+    private void UpdateMultiplier(ActivityType activityType, double value)
+    {
+        ActivityTypeMultipliers[activityType] = value;
     }
 
 
@@ -224,6 +283,18 @@ public partial class ChallengeForm : ComponentBase
 
     private async Task SubmitForm()
     {
+        // Populate ActivityTypeMultipliers from UI state
+        if (Challenge.ActivityTypes.Count > 0)
+        {
+            Challenge.ActivityTypeMultipliers = new Dictionary<ActivityType, double>();
+            foreach (ActivityType activityType in Challenge.ActivityTypes)
+            {
+                Challenge.ActivityTypeMultipliers[activityType] = ActivityTypeMultipliers.ContainsKey(activityType) 
+                    ? ActivityTypeMultipliers[activityType] 
+                    : 1.0;
+            }
+        }
+        
         OnSubmit?.Invoke(Challenge);
 
         if (OnSubmitAsync != null) await OnSubmitAsync(Challenge);
