@@ -66,7 +66,7 @@ public class ChallengeService(
                 (filter.IncludeDistanceChallenges && c.Measurement == ChallengeMeasurement.Distance) ||
                 (filter.IncludeCalorieChallenges && c.Measurement == ChallengeMeasurement.Calories))
             .Where(c => filter.ActivityTypes == null || filter.ActivityTypes.Count <= 0 ||
-                c.ChallengeActivityTypes!.Any(cat => filter.ActivityTypes.Contains(cat.ActivityType)))
+                c.ChallengeActivityTypes.Any(cat => filter.ActivityTypes.Contains(cat.ActivityType)))
             .OrderByDescending(challenge => challenge.Start)
             .ThenBy(challenge => challenge.Title)
             .ThenBy(challenge => challenge.Id)
@@ -171,7 +171,7 @@ public class ChallengeService(
                 {
                     ActivityType = kvp.Key,
                     Multiplier = kvp.Value
-                }).ToList(),
+                }).ToList() ?? [],
                 IsPrivate = newChallenge.IsPrivate,
                 Created = DateTimeOffset.Now,
                 CreatedById = newChallenge.CreatedBy,
@@ -243,10 +243,7 @@ public class ChallengeService(
         if (editChallenge.ActivityTypeMultipliers != null)
         {
             // Remove old activity types
-            if (challenge.ChallengeActivityTypes != null)
-            {
-                dataContext.ChallengeActivityTypes.RemoveRange(challenge.ChallengeActivityTypes);
-            }
+            dataContext.ChallengeActivityTypes.RemoveRange(challenge.ChallengeActivityTypes);
             
             // Add new activity types with multipliers
             challenge.ChallengeActivityTypes = editChallenge.ActivityTypeMultipliers.Select(kvp => new ChallengeActivityType
@@ -351,7 +348,7 @@ public class ChallengeService(
 
         // Get activity types from ChallengeActivityTypes
         List<ActivityType> activityTypes = [];
-        if (challenge.ChallengeActivityTypes?.Count > 0)
+        if (challenge.ChallengeActivityTypes.Count > 0)
         {
             activityTypes = [.. challenge.ChallengeActivityTypes.Select(cat => cat.ActivityType)];
         }
@@ -366,7 +363,7 @@ public class ChallengeService(
 
         // Build multiplier lookup
         Dictionary<ActivityType, double> multipliers = new();
-        if (challenge.ChallengeActivityTypes?.Count > 0)
+        if (challenge.ChallengeActivityTypes.Count > 0)
         {
             foreach (ChallengeActivityType cat in challenge.ChallengeActivityTypes)
             {
@@ -442,14 +439,14 @@ public class ChallengeService(
 
         // Get activity types from ChallengeActivityTypes
         List<ActivityType> activityTypes = [];
-        if (challenge.ChallengeActivityTypes?.Count > 0)
+        if (challenge.ChallengeActivityTypes.Count > 0)
         {
             activityTypes = [.. challenge.ChallengeActivityTypes.Select(cat => cat.ActivityType)];
         }
 
         // Build multiplier lookup
         Dictionary<ActivityType, double> multipliers = new();
-        if (challenge.ChallengeActivityTypes?.Count > 0)
+        if (challenge.ChallengeActivityTypes.Count > 0)
         {
             foreach (ChallengeActivityType cat in challenge.ChallengeActivityTypes)
             {

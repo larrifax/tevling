@@ -95,7 +95,7 @@ public partial class ChallengeForm : ComponentBase
         
         // Initialize multipliers from template
         ActivityTypeMultipliers.Clear();
-        if (template.ChallengeTemplateActivityTypes?.Count > 0)
+        if (template.ChallengeTemplateActivityTypes.Count > 0)
         {
             foreach (ChallengeTemplateActivityType cat in template.ChallengeTemplateActivityTypes)
             {
@@ -204,7 +204,7 @@ public partial class ChallengeForm : ComponentBase
             
             // Initialize multipliers from existing challenge
             ActivityTypeMultipliers.Clear();
-            if (EditChallenge.ChallengeActivityTypes?.Count > 0)
+            if (EditChallenge.ChallengeActivityTypes.Count > 0)
             {
                 foreach (ChallengeActivityType cat in EditChallenge.ChallengeActivityTypes)
                 {
