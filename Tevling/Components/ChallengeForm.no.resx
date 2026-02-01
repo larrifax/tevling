@@ -106,4 +106,7 @@
     <data name="SelectGroupsToDelete" xml:space="preserve">
         <value>Velg gruppe(r) som skal slettes:</value>
     </data>
+    <data name="Multiplier" xml:space="preserve">
+        <value>Multiplikator</value>
+    </data>
 </root>

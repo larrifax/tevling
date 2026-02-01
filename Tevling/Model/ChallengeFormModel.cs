@@ -12,6 +12,7 @@ public class ChallengeFormModel
     public DateTimeOffset End { get; set; }
     public ChallengeMeasurement Measurement { get; set; }
     public ICollection<ActivityType> ActivityTypes { get; set; } = [];
+    public Dictionary<ActivityType, double>? ActivityTypeMultipliers { get; set; }
     public bool IsPrivate { get; set; }
     public ICollection<Athlete> InvitedAthletes { get; set; } = [];
     public int CreatedBy { get; set; }

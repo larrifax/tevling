@@ -106,11 +106,11 @@
                 </div>
 
                 <div class="d-flex flex-wrap cg-1 rg-1 mb-4">
-                    @if (Challenge.ActivityTypes.Count > 0)
+                    @if (Challenge.ChallengeActivityTypes.Count > 0)
                     {
-                        foreach (Strava.ActivityType type in Challenge.ActivityTypes)
+                        foreach (var cat in Challenge.ChallengeActivityTypes)
                         {
-                            <span class="badge bg-primary">@ActivityTypeTranslator.Translate(type)</span>
+                            <span class="badge bg-primary">@ActivityTypeTranslator.Translate(cat.ActivityType)</span>
                         }
                     }
                     else
