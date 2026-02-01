@@ -66,7 +66,7 @@ public class ChallengeService(
                 (filter.IncludeDistanceChallenges && c.Measurement == ChallengeMeasurement.Distance) ||
                 (filter.IncludeCalorieChallenges && c.Measurement == ChallengeMeasurement.Calories))
             .Where(c => filter.ActivityTypes == null || filter.ActivityTypes.Count <= 0 ||
-                filter.ActivityTypes.Intersect(c.ActivityTypes).Any())
+                c.ChallengeActivityTypes!.Any(cat => filter.ActivityTypes.Contains(cat.ActivityType)))
             .OrderByDescending(challenge => challenge.Start)
             .ThenBy(challenge => challenge.Title)
             .ThenBy(challenge => challenge.Id)
@@ -167,7 +167,6 @@ public class ChallengeService(
                 Start = newChallenge.Start,
                 End = newChallenge.End,
                 Measurement = newChallenge.Measurement,
-                ActivityTypes = newChallenge.ActivityTypes.ToList(),
                 ChallengeActivityTypes = newChallenge.ActivityTypeMultipliers?.Select(kvp => new ChallengeActivityType
                 {
                     ActivityType = kvp.Key,
@@ -239,7 +238,6 @@ public class ChallengeService(
         challenge.Start = editChallenge.Start;
         challenge.End = editChallenge.End;
         challenge.Measurement = editChallenge.Measurement;
-        challenge.ActivityTypes = editChallenge.ActivityTypes.ToList();
         
         // Update ChallengeActivityTypes
         if (editChallenge.ActivityTypeMultipliers != null)
@@ -351,8 +349,8 @@ public class ChallengeService(
 
         int[] athleteIds = [.. challenge.Athletes!.Select(a => a.Id)];
 
-        // Get activity types from both old and new system
-        List<ActivityType> activityTypes = [.. challenge.ActivityTypes];
+        // Get activity types from ChallengeActivityTypes
+        List<ActivityType> activityTypes = [];
         if (challenge.ChallengeActivityTypes?.Count > 0)
         {
             activityTypes = [.. challenge.ChallengeActivityTypes.Select(cat => cat.ActivityType)];
@@ -442,8 +440,8 @@ public class ChallengeService(
 
         if (challenge == null) return null;
 
-        // Get activity types from both old and new system
-        List<ActivityType> activityTypes = [.. challenge.ActivityTypes];
+        // Get activity types from ChallengeActivityTypes
+        List<ActivityType> activityTypes = [];
         if (challenge.ChallengeActivityTypes?.Count > 0)
         {
             activityTypes = [.. challenge.ChallengeActivityTypes.Select(cat => cat.ActivityType)];

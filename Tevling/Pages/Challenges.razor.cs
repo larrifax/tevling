@@ -256,7 +256,8 @@ public partial class Challenges : ComponentBase, IDisposable
                         (_showDistanceChallenges && c.Measurement == ChallengeMeasurement.Distance) ||
                         (_showCalorieChallenges && c.Measurement == ChallengeMeasurement.Calories))
                 .Where(
-                    c => _activityTypes.Count <= 0 || _activityTypes.Intersect(c.ActivityTypes).Any())
+                    c => _activityTypes.Count <= 0 || 
+                        (c.ChallengeActivityTypes != null && c.ChallengeActivityTypes.Any(cat => _activityTypes.Contains(cat.ActivityType))))
                 .Where(
                     c => string.IsNullOrWhiteSpace(_filterText) ||
                         c.Title.Contains(_filterText, StringComparison.OrdinalIgnoreCase))

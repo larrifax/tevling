@@ -8,7 +8,6 @@ public class ChallengeTemplate
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public ChallengeMeasurement Measurement { get; set; }
-    public IList<ActivityType> ActivityTypes { get; set; } = [];
     public ICollection<ChallengeTemplateActivityType>? ChallengeTemplateActivityTypes { get; set; }
     public DateTimeOffset Created { get; set; }
     public bool IsPrivate { get; set; }

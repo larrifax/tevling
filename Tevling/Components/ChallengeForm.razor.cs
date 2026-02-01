@@ -88,7 +88,7 @@ public partial class ChallengeForm : ComponentBase
             Title = template.Title,
             Description = template.Description,
             Measurement = template.Measurement,
-            ActivityTypes = template.ActivityTypes,
+            ActivityTypes = [],
             IsPrivate = template.IsPrivate,
             InvitedAthletes = [],
         };
@@ -97,17 +97,10 @@ public partial class ChallengeForm : ComponentBase
         ActivityTypeMultipliers.Clear();
         if (template.ChallengeTemplateActivityTypes?.Count > 0)
         {
-            foreach (var cat in template.ChallengeTemplateActivityTypes)
+            foreach (ChallengeTemplateActivityType cat in template.ChallengeTemplateActivityTypes)
             {
                 ActivityTypeMultipliers[cat.ActivityType] = cat.Multiplier;
-            }
-        }
-        else
-        {
-            // Default multipliers
-            foreach (var activityType in template.ActivityTypes)
-            {
-                ActivityTypeMultipliers[activityType] = DefaultMultiplier;
+                Challenge.ActivityTypes.Add(cat.ActivityType);
             }
         }
     }
@@ -119,7 +112,11 @@ public partial class ChallengeForm : ComponentBase
             Title = Challenge.Title,
             Description = Challenge.Description,
             Measurement = Challenge.Measurement,
-            ActivityTypes = [.. Challenge.ActivityTypes],
+            ChallengeTemplateActivityTypes = ActivityTypeMultipliers.Select(kvp => new ChallengeTemplateActivityType
+            {
+                ActivityType = kvp.Key,
+                Multiplier = kvp.Value
+            }).ToList(),
             IsPrivate = Challenge.IsPrivate,
             Created = DateTimeOffset.Now,
             CreatedById = Challenge.CreatedBy,
@@ -200,7 +197,7 @@ public partial class ChallengeForm : ComponentBase
             Challenge.Start = EditChallenge.Start;
             Challenge.End = EditChallenge.End;
             Challenge.Measurement = EditChallenge.Measurement;
-            Challenge.ActivityTypes = EditChallenge.ActivityTypes.ToList();
+            Challenge.ActivityTypes = [];
             Challenge.IsPrivate = EditChallenge.IsPrivate;
             Challenge.CreatedBy = EditChallenge.CreatedById;
             Challenge.InvitedAthletes = EditChallenge.InvitedAthletes?.ToList() ?? [];
@@ -209,17 +206,10 @@ public partial class ChallengeForm : ComponentBase
             ActivityTypeMultipliers.Clear();
             if (EditChallenge.ChallengeActivityTypes?.Count > 0)
             {
-                foreach (var cat in EditChallenge.ChallengeActivityTypes)
+                foreach (ChallengeActivityType cat in EditChallenge.ChallengeActivityTypes)
                 {
                     ActivityTypeMultipliers[cat.ActivityType] = cat.Multiplier;
-                }
-            }
-            else
-            {
-                // Default multipliers for existing activity types
-                foreach (var activityType in Challenge.ActivityTypes)
-                {
-                    ActivityTypeMultipliers[activityType] = DefaultMultiplier;
+                    Challenge.ActivityTypes.Add(cat.ActivityType);
                 }
             }
         }
