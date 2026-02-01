@@ -27,6 +27,10 @@ public partial class ChallengeForm : ComponentBase
     private Dictionary<int, bool> ChallengeGroupsSelectedForDeletion { get; set; } = [];
     private Dictionary<ActivityType, double> ActivityTypeMultipliers { get; set; } = new();
     
+    private const double MinMultiplier = 0.1;
+    private const double MaxMultiplier = 10.0;
+    private const double DefaultMultiplier = 1.0;
+    
     private const int MaximumSuggestions = 10;
     private DropdownSearch<ActivityType>? _dropdownSearchRefActivityTypes;
     private DropdownSearch<Athlete>? _dropdownSearchRefAthletes;
@@ -103,7 +107,7 @@ public partial class ChallengeForm : ComponentBase
             // Default multipliers
             foreach (var activityType in template.ActivityTypes)
             {
-                ActivityTypeMultipliers[activityType] = 1.0;
+                ActivityTypeMultipliers[activityType] = DefaultMultiplier;
             }
         }
     }
@@ -187,15 +191,6 @@ public partial class ChallengeForm : ComponentBase
     
     protected override void OnParametersSet()
     {
-        // Ensure all selected activity types have multipliers
-        foreach (var activityType in Challenge.ActivityTypes)
-        {
-            if (!ActivityTypeMultipliers.ContainsKey(activityType))
-            {
-                ActivityTypeMultipliers[activityType] = 1.0;
-            }
-        }
-        
         if (EditChallenge != null)
         {
             if (EditChallenge.Athletes is null) throw new Exception("Athletes not initialized");
@@ -224,7 +219,7 @@ public partial class ChallengeForm : ComponentBase
                 // Default multipliers for existing activity types
                 foreach (var activityType in Challenge.ActivityTypes)
                 {
-                    ActivityTypeMultipliers[activityType] = 1.0;
+                    ActivityTypeMultipliers[activityType] = DefaultMultiplier;
                 }
             }
         }
@@ -236,6 +231,15 @@ public partial class ChallengeForm : ComponentBase
                 End = DateTimeOffset.Now.AddMonths(1),
                 CreatedBy = Athlete.Id,
             };
+        }
+        
+        // Ensure all selected activity types have multipliers
+        foreach (var activityType in Challenge.ActivityTypes)
+        {
+            if (!ActivityTypeMultipliers.ContainsKey(activityType))
+            {
+                ActivityTypeMultipliers[activityType] = DefaultMultiplier;
+            }
         }
     }
 
@@ -264,7 +268,7 @@ public partial class ChallengeForm : ComponentBase
     {
         if (!ActivityTypeMultipliers.ContainsKey(activityType))
         {
-            ActivityTypeMultipliers[activityType] = 1.0;
+            ActivityTypeMultipliers[activityType] = DefaultMultiplier;
         }
     }
 
@@ -291,7 +295,7 @@ public partial class ChallengeForm : ComponentBase
             {
                 Challenge.ActivityTypeMultipliers[activityType] = ActivityTypeMultipliers.ContainsKey(activityType) 
                     ? ActivityTypeMultipliers[activityType] 
-                    : 1.0;
+                    : DefaultMultiplier;
             }
         }
         
