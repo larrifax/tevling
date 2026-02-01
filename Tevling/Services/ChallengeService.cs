@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Reactive.Subjects;
 using Microsoft.EntityFrameworkCore;
+using Tevling.Strava;
 
 namespace Tevling.Services;
 
@@ -19,6 +20,7 @@ public class ChallengeService(
             .Include(c => c.Athletes)
             .Include(c => c.InvitedAthletes)
             .Include(c => c.CreatedBy)
+            .Include(c => c.ChallengeActivityTypes)
             .AsSplitQuery()
             .FirstOrDefaultAsync(c => c.Id == challengeId, ct);
 
@@ -166,6 +168,11 @@ public class ChallengeService(
                 End = newChallenge.End,
                 Measurement = newChallenge.Measurement,
                 ActivityTypes = newChallenge.ActivityTypes.ToList(),
+                ChallengeActivityTypes = newChallenge.ActivityTypeMultipliers?.Select(kvp => new ChallengeActivityType
+                {
+                    ActivityType = kvp.Key,
+                    Multiplier = kvp.Value
+                }).ToList(),
                 IsPrivate = newChallenge.IsPrivate,
                 Created = DateTimeOffset.Now,
                 CreatedById = newChallenge.CreatedBy,
@@ -205,6 +212,7 @@ public class ChallengeService(
                 .Include(c => c.Athletes)
                 .Include(c => c.CreatedBy)
                 .Include(c => c.InvitedAthletes)
+                .Include(c => c.ChallengeActivityTypes)
                 .AsSplitQuery()
                 .AsTracking()
                 .FirstOrDefaultAsync(c => c.Id == challengeId, ct) ??
@@ -232,6 +240,25 @@ public class ChallengeService(
         challenge.End = editChallenge.End;
         challenge.Measurement = editChallenge.Measurement;
         challenge.ActivityTypes = editChallenge.ActivityTypes.ToList();
+        
+        // Update ChallengeActivityTypes
+        if (editChallenge.ActivityTypeMultipliers != null)
+        {
+            // Remove old activity types
+            if (challenge.ChallengeActivityTypes != null)
+            {
+                dataContext.ChallengeActivityTypes.RemoveRange(challenge.ChallengeActivityTypes);
+            }
+            
+            // Add new activity types with multipliers
+            challenge.ChallengeActivityTypes = editChallenge.ActivityTypeMultipliers.Select(kvp => new ChallengeActivityType
+            {
+                ActivityType = kvp.Key,
+                Multiplier = kvp.Value,
+                ChallengeId = challengeId
+            }).ToList();
+        }
+        
         challenge.IsPrivate = editChallenge.IsPrivate;
 
         challenge = await dataContext.UpdateChallengeAsync(challenge, CancellationToken.None);
@@ -324,13 +351,30 @@ public class ChallengeService(
 
         int[] athleteIds = [.. challenge.Athletes!.Select(a => a.Id)];
 
+        // Get activity types from both old and new system
+        List<ActivityType> activityTypes = [.. challenge.ActivityTypes];
+        if (challenge.ChallengeActivityTypes?.Count > 0)
+        {
+            activityTypes = [.. challenge.ChallengeActivityTypes.Select(cat => cat.ActivityType)];
+        }
+
         Activity[] activities = await dataContext.Activities
             .Where(activity =>
                 activity.Details.StartDate >= challenge.Start &&
                 activity.Details.StartDate < challenge.End &&
-                (challenge.ActivityTypes.Count == 0 || challenge.ActivityTypes.Contains(activity.Details.Type)) &&
+                (activityTypes.Count == 0 || activityTypes.Contains(activity.Details.Type)) &&
                 athleteIds.Contains(activity.AthleteId))
             .ToArrayAsync(ct);
+
+        // Build multiplier lookup
+        Dictionary<ActivityType, double> multipliers = new();
+        if (challenge.ChallengeActivityTypes?.Count > 0)
+        {
+            foreach (ChallengeActivityType cat in challenge.ChallengeActivityTypes)
+            {
+                multipliers[cat.ActivityType] = cat.Multiplier;
+            }
+        }
 
         AthleteScore[] scores = [.. challenge.Athletes!
             .Select(
@@ -345,10 +389,14 @@ public class ChallengeService(
                     a.Athlete,
                     Sum = challenge.Measurement switch
                     {
-                        ChallengeMeasurement.Distance => a.Activities.Select(x => x.Details.DistanceInMeters).Sum(),
-                        ChallengeMeasurement.Time => a.Activities.Select(x => x.Details.MovingTimeInSeconds).Sum(),
-                        ChallengeMeasurement.Elevation => a.Activities.Select(x => x.Details.TotalElevationGain).Sum(),
-                        ChallengeMeasurement.Calories => a.Activities.Select(x => x.Details.Calories).Sum(),
+                        ChallengeMeasurement.Distance => a.Activities.Select(x => 
+                            x.Details.DistanceInMeters * (multipliers.ContainsKey(x.Details.Type) ? multipliers[x.Details.Type] : 1.0)).Sum(),
+                        ChallengeMeasurement.Time => a.Activities.Select(x => 
+                            x.Details.MovingTimeInSeconds * (multipliers.ContainsKey(x.Details.Type) ? multipliers[x.Details.Type] : 1.0)).Sum(),
+                        ChallengeMeasurement.Elevation => a.Activities.Select(x => 
+                            x.Details.TotalElevationGain * (multipliers.ContainsKey(x.Details.Type) ? multipliers[x.Details.Type] : 1.0)).Sum(),
+                        ChallengeMeasurement.Calories => a.Activities.Select(x => 
+                            x.Details.Calories * (multipliers.ContainsKey(x.Details.Type) ? multipliers[x.Details.Type] : 1.0)).Sum(),
                         _ => 0,
                     },
                 })
@@ -367,11 +415,11 @@ public class ChallengeService(
 
                     float scoreValue = challenge.Measurement switch
                     {
-                        ChallengeMeasurement.Distance => s.Sum / 1000,
+                        ChallengeMeasurement.Distance => (float)(s.Sum / 1000),
                         ChallengeMeasurement.Time => (float)TimeSpan.FromSeconds(s.Sum).TotalHours,
-                        ChallengeMeasurement.Elevation => s.Sum,
-                        ChallengeMeasurement.Calories => s.Sum,
-                        _ => s.Sum,
+                        ChallengeMeasurement.Elevation => (float)s.Sum,
+                        ChallengeMeasurement.Calories => (float)s.Sum,
+                        _ => (float)s.Sum,
                     };
 
                     return new AthleteScore(s.Athlete, score, scoreValue);
@@ -387,45 +435,66 @@ public class ChallengeService(
         Challenge? challenge = await dataContext.Challenges
             .Include(c => c.Athletes)!
             .ThenInclude(a => a.Activities)
+            .Include(c => c.ChallengeActivityTypes)
             .AsTracking()
             .AsSplitQuery()
             .FirstOrDefaultAsync(c => c.Id == challengeId, ct);
 
         if (challenge == null) return null;
 
+        // Get activity types from both old and new system
+        List<ActivityType> activityTypes = [.. challenge.ActivityTypes];
+        if (challenge.ChallengeActivityTypes?.Count > 0)
+        {
+            activityTypes = [.. challenge.ChallengeActivityTypes.Select(cat => cat.ActivityType)];
+        }
+
+        // Build multiplier lookup
+        Dictionary<ActivityType, double> multipliers = new();
+        if (challenge.ChallengeActivityTypes?.Count > 0)
+        {
+            foreach (ChallengeActivityType cat in challenge.ChallengeActivityTypes)
+            {
+                multipliers[cat.ActivityType] = cat.Multiplier;
+            }
+        }
+
         List<(Athlete Athlete, int Tickets)> tickets = [];
 
         foreach (Athlete athlete in challenge.Athletes ?? [])
         {
-            int athleteTickets = 0;
+            double athleteTickets = 0;
             if (athlete.Activities == null) continue;
             IEnumerable<Activity> challengeActivities = athlete.Activities.Where(
                 a =>
-                    (challenge.ActivityTypes.Count == 0 || challenge.ActivityTypes.Contains(a.Details.Type)) &&
+                    (activityTypes.Count == 0 || activityTypes.Contains(a.Details.Type)) &&
                     a.Details.StartDate >= challenge.Start &&
                     a.Details.StartDate <= challenge.End);
 
             foreach (Activity? activity in challengeActivities)
+            {
+                double multiplier = multipliers.ContainsKey(activity.Details.Type) ? multipliers[activity.Details.Type] : 1.0;
                 switch (challenge.Measurement)
                 {
                     case ChallengeMeasurement.Distance:
-                        athleteTickets += (int)(activity.Details.DistanceInMeters / 1000); // 1 km = 1 ticket
+                        athleteTickets += (activity.Details.DistanceInMeters / 1000) * multiplier; // 1 km = 1 ticket
                         break;
                     case ChallengeMeasurement.Elevation:
-                        athleteTickets += (int)activity.Details.TotalElevationGain; // 1 m = 1 ticket
+                        athleteTickets += activity.Details.TotalElevationGain * multiplier; // 1 m = 1 ticket
                         break;
                     case ChallengeMeasurement.Time:
-                        athleteTickets += activity.Details.MovingTimeInSeconds / 1800; // 30 min = 1 ticket
+                        athleteTickets += (activity.Details.MovingTimeInSeconds / 1800.0) * multiplier; // 30 min = 1 ticket
                         break;
                     case ChallengeMeasurement.Calories:
-                        athleteTickets += (int)activity.Details.Calories / 100; // 100 kcal = 1 ticket
+                        athleteTickets += (activity.Details.Calories / 100.0) * multiplier; // 100 kcal = 1 ticket
                         break;
                     default:
                         athleteTickets += 0;
                         break;
                 }
+            }
 
-            if (athleteTickets > 0) tickets.Add((athlete, athleteTickets));
+            if (athleteTickets > 0) tickets.Add((athlete, (int)athleteTickets));
         }
 
         int totalTickets = tickets.Sum(t => t.Tickets);

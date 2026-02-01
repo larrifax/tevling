@@ -9,11 +9,13 @@ public class DataContext(DbContextOptions<DataContext> options) : DbContext(opti
     public DbSet<Activity> Activities { get; set; }
     public DbSet<Athlete> Athletes { get; set; }
     public DbSet<Challenge> Challenges { get; set; }
+    public DbSet<ChallengeActivityType> ChallengeActivityTypes { get; set; }
     public DbSet<Following> Following { get; set; }
     public DbSet<FollowRequest> FollowRequests { get; set; }
     
     public DbSet<ChallengeGroup> ChallengeGroups { get; set; }
     public DbSet<ChallengeTemplate> ChallengeTemplates { get; set; }
+    public DbSet<ChallengeTemplateActivityType> ChallengeTemplateActivityTypes { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -75,12 +77,24 @@ public class DataContext(DbContextOptions<DataContext> options) : DbContext(opti
             .HasMany(a => a.InvitedAthletes)
             .WithMany();
 
+        modelBuilder.Entity<Challenge>()
+            .HasMany(c => c.ChallengeActivityTypes)
+            .WithOne(cat => cat.Challenge)
+            .HasForeignKey(cat => cat.ChallengeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         modelBuilder.Entity<ChallengeTemplate>()
             .HasOne(ct => ct.CreatedBy);
 
         modelBuilder.Entity<ChallengeTemplate>()
             .Property(ct => ct.Created)
             .HasConversion(new DateTimeOffsetToBinaryConverter());
+        
+        modelBuilder.Entity<ChallengeTemplate>()
+            .HasMany(ct => ct.ChallengeTemplateActivityTypes)
+            .WithOne(ctat => ctat.ChallengeTemplate)
+            .HasForeignKey(ctat => ctat.ChallengeTemplateId)
+            .OnDelete(DeleteBehavior.Cascade);
         
         modelBuilder.Entity<ChallengeGroup>()
             .HasOne<Athlete>()
